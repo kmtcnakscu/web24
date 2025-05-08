@@ -327,6 +327,24 @@
         .audio-card .btn-group {
             margin-top: 10px;
         }
+        .audio-card .btn-group {
+        gap: 8px; /* Space between buttons */
+    }
+    .audio-close {
+        color: #dc3545 !important;
+        background-color: transparent !important;
+        border: none !important;
+        padding: 0 !important;
+        margin-left: 8px !important;
+    }
+    .audio-close:hover {
+        background-color: transparent !important;
+        color: #dc3545 !important;
+    }
+    .playing {
+        background-color: #28a745 !important;
+        border-color: #28a745 !important;
+    }
     
     </style>
 </head>
@@ -487,57 +505,90 @@
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.3/dist/umd/popper.min.js"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
     <script>
-       let currentSection = 'ebooks'; // 'ebooks' or 'audio'
+        // Global variables
+        let currentSection = 'ebooks';
         let books = [];
         let audioSermons = [];
         let selectedCategory = 'all';
         let searchTerm = '';
         let currentPage = 1;
         const itemsPerPage = 9;
-
-        // Audio player variables
         const audioElement = new Audio();
         let isPlaying = false;
         let currentAudio = null;
-
-         // Load both datasets
-        Promise.all([
-            fetch('books.json').then(r => r.json()),
-            fetch('audio.json').then(r => r.json())
-        ]).then(([bookData, audioData]) => {
-            books = bookData;
-            audioSermons = audioData;
-            updateCategories();
-            filterContent();
+    
+        // Initial setup
+        document.addEventListener('DOMContentLoaded', function() {
+            loadData();
+            setupEventListeners();
         });
-
-              // Section switching
-              document.querySelectorAll('[data-section]').forEach(link => {
-            link.addEventListener('click', (e) => {
-                e.preventDefault();
-                currentSection = link.dataset.section;
-                document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
-                link.classList.add('active');
-                selectedCategory = 'all';
-                currentPage = 1;
+    
+        async function loadData() {
+            try {
+                const [bookResponse, audioResponse] = await Promise.all([
+                    fetch('books.json'),
+                    fetch('audio.json')
+                ]);
+                
+                books = await bookResponse.json();
+                audioSermons = await audioResponse.json();
+                
                 updateCategories();
                 filterContent();
+            } catch (error) {
+                console.error('Error loading data:', error);
+                alert('Failed to load library content. Please try again later.');
+            }
+        }
+    
+        function setupEventListeners() {
+            // Section switching
+            document.querySelectorAll('[data-section]').forEach(link => {
+                link.addEventListener('click', handleSectionSwitch);
             });
-        });
- 
+    
+            // Search functionality
+            document.getElementById('searchInput').addEventListener('input', handleSearch);
+            document.getElementById('searchButton').addEventListener('click', handleSearch);
+    
+            // Audio controls
+            document.getElementById('progressContainer').addEventListener('click', handleProgressClick);
+            document.getElementById('closePlayer').addEventListener('click', handleClosePlayer);
+            document.getElementById('playPauseBtn').addEventListener('click', handlePlayPause);
+    
+            // Contact form
+            document.getElementById('contactForm').addEventListener('submit', handleFormSubmit);
+    
+            // Scroll to top
+            window.addEventListener('scroll', handleScroll);
+            document.querySelector('.scroll-to-top').addEventListener('click', scrollToTop);
+        }
+    
+        function handleSectionSwitch(e) {
+            e.preventDefault();
+            currentSection = this.dataset.section;
+            document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+            this.classList.add('active');
+            selectedCategory = 'all';
+            currentPage = 1;
+            updateCategories();
+            filterContent();
+        }
+    
         function updateCategories() {
             const categories = currentSection === 'ebooks' 
                 ? [...new Set(books.map(item => item.category))]
                 : [...new Set(audioSermons.map(item => item.category))];
-            
+    
             const categoryList = document.getElementById('categoryList');
             categoryList.innerHTML = `
                 <a href="#" class="list-group-item list-group-item-action ${selectedCategory === 'all' ? 'active' : ''}" data-category="all">All</a>
                 ${categories.map(cat => `
-                    <a href="#" class="list-group-item list-group-item-action ${selectedCategory === cat ? 'active' : ''}" data-category="${cat}">${cat}</a>
+                    <a href="#" class="list-group-item list-group-item-action ${selectedCategory === cat ? 'active' : ''}" 
+                       data-category="${cat}">${cat}</a>
                 `).join('')}
             `;
-
+    
             categoryList.querySelectorAll('a').forEach(a => {
                 a.addEventListener('click', (e) => {
                     e.preventDefault();
@@ -549,30 +600,53 @@
                 });
             });
         }
-
+    
         function filterContent() {
             const dataset = currentSection === 'ebooks' ? books : audioSermons;
             const filtered = dataset.filter(item =>
                 (selectedCategory === 'all' || item.category === selectedCategory) &&
                 item.title.toLowerCase().includes(searchTerm.toLowerCase())
             );
-            
+    
             const totalPages = Math.ceil(filtered.length / itemsPerPage);
             const paginated = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
             displayContent(paginated);
             renderPagination(totalPages);
         }
-
+    
         function displayContent(items) {
             const contentList = document.getElementById('contentList');
             contentList.innerHTML = '';
-            
+    
             items.forEach(item => {
                 const col = document.createElement('div');
                 col.className = 'col-md-4 col-sm-6 mb-4';
-                
+    
                 if(currentSection === 'ebooks') {
-                    // Existing book card
+                    col.innerHTML = `
+                        <div class="card book-card shadow h-100">
+                            <div class="card-body">
+                                <h5 class="card-title">
+                                    <i class="fas fa-book book-icon"></i> ${item.title}
+                                </h5>
+                                <div class="author-info">
+                                    <i class="fas fa-user"></i> ${item.author}
+                                </div>
+                                <div class="mt-3">
+                                    <a href="reader.html?file=${encodeURIComponent(item.file)}" 
+                                       class="btn btn-primary btn-sm" 
+                                       target="_blank">
+                                        <i class="fas fa-book-open"></i> Read
+                                    </a>
+                                    <a href="${item.file}" 
+                                       download 
+                                       class="btn btn-secondary btn-sm ml-2">
+                                        <i class="fas fa-download"></i> Download
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    `;
                 } else {
                     col.innerHTML = `
                         <div class="card audio-card shadow h-100">
@@ -583,13 +657,16 @@
                                 <div class="author-info">
                                     <i class="fas fa-user"></i> ${item.speaker}
                                 </div>
-                                <div class="mt-3 btn-group">
+                                <div class="mt-3 d-flex align-items-center">
                                     <button class="btn btn-primary btn-sm play-audio" data-file="${item.file}">
                                         <i class="fas fa-play"></i> Play
                                     </button>
-                                    <a href="${item.file}" download class="btn btn-secondary btn-sm">
+                                    <a href="${item.file}" download class="btn btn-secondary btn-sm ml-2">
                                         <i class="fas fa-download"></i> Download
                                     </a>
+                                    <button class="btn btn-link audio-close" style="display: none;">
+                                        <i class="fas fa-times text-danger"></i>
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -597,118 +674,83 @@
                 }
                 contentList.appendChild(col);
             });
-
-            // Add audio event listeners
+    
             if(currentSection === 'audio') {
-                document.querySelectorAll('.play-audio').forEach(btn => {
-                    btn.addEventListener('click', () => handleAudioPlay(btn.dataset.file));
-                });
+                setupAudioControls();
             }
         }
-
-        // Audio handling functions
+    
+        function setupAudioControls() {
+            document.querySelectorAll('.play-audio').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.querySelectorAll('.play-audio').forEach(b => {
+                        b.innerHTML = '<i class="fas fa-play"></i> Play';
+                        b.classList.remove('playing');
+                        b.parentElement.querySelector('.audio-close').style.display = 'none';
+                    });
+    
+                    this.innerHTML = '<i class="fas fa-pause"></i> Playing';
+                    this.classList.add('playing');
+                    this.parentElement.querySelector('.audio-close').style.display = 'inline-block';
+                    
+                    handleAudioPlay(this.dataset.file);
+                });
+            });
+    
+            document.querySelectorAll('.audio-close').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    audioElement.pause();
+                    isPlaying = false;
+                    this.style.display = 'none';
+                    this.previousElementSibling.previousElementSibling.innerHTML = '<i class="fas fa-play"></i> Play';
+                    this.previousElementSibling.previousElementSibling.classList.remove('playing');
+                    document.querySelector('.audio-player').style.display = 'none';
+                });
+            });
+        }
+    
         function handleAudioPlay(file) {
             const audioPlayer = document.querySelector('.audio-player');
             audioPlayer.style.display = 'block';
-            
+    
             if(currentAudio !== file) {
                 audioElement.src = file;
                 currentAudio = file;
-                isPlaying = true;
-                audioElement.play();
-                updatePlayButton();
-            } else {
-                isPlaying = !isPlaying;
-                if(isPlaying) audioElement.play();
-                else audioElement.pause();
-                updatePlayButton();
             }
+    
+            isPlaying = true;
+            audioElement.play();
+            updatePlayButton();
         }
-
+    
         function updatePlayButton() {
             const btn = document.getElementById('playPauseBtn');
             btn.innerHTML = isPlaying ? '<i class="fas fa-pause"></i>' : '<i class="fas fa-play"></i>';
         }
-
-        // Audio progress handling
-        audioElement.addEventListener('timeupdate', () => {
-            const progress = (audioElement.currentTime / audioElement.duration) * 100;
-            document.getElementById('progressBar').style.width = `${progress}%`;
-            
-            const currentTime = formatTime(audioElement.currentTime);
-            const duration = formatTime(audioElement.duration);
-            document.getElementById('timeDisplay').textContent = `${currentTime} / ${duration}`;
-        });
-
-        function formatTime(seconds) {
-            const minutes = Math.floor(seconds / 60);
-            seconds = Math.floor(seconds % 60);
-            return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-        }
-
-        // Progress bar click handler
-        document.getElementById('progressContainer').addEventListener('click', (e) => {
-            const rect = e.target.getBoundingClientRect();
-            const pos = (e.clientX - rect.left) / rect.width;
-            audioElement.currentTime = pos * audioElement.duration;
-        });
-
-        // Close player handler
-        document.getElementById('closePlayer').addEventListener('click', () => {
-            audioElement.pause();
-            isPlaying = false;
-            document.querySelector('.audio-player').style.display = 'none';
-            updatePlayButton();
-        });
-
-        // Play/pause button handler
-        document.getElementById('playPauseBtn').addEventListener('click', () => {
-            isPlaying = !isPlaying;
-            if(isPlaying) audioElement.play();
-            else audioElement.pause();
-            updatePlayButton();
-        });
-
+    
         function renderPagination(totalPages) {
             const pagination = document.getElementById('pagination');
             pagination.innerHTML = '';
             if (totalPages <= 1) return;
-
+    
             const pagesToShow = [];
-            const MAX_VISIBLE = 3; // Current page + prev/next
-
-            // Always add first page
+            const MAX_VISIBLE = 3;
+    
             pagesToShow.push(1);
-
-            // Add ellipsis if current page is far from start
-            if (currentPage > MAX_VISIBLE) {
-                pagesToShow.push('...');
-            }
-
-            // Determine range of pages around current page
+            if (currentPage > MAX_VISIBLE) pagesToShow.push('...');
+    
             let start = Math.max(2, currentPage - 1);
             let end = Math.min(totalPages - 1, currentPage + 1);
-
-            // Add page numbers around current page
             for (let i = start; i <= end; i++) {
-                if (i > 1 && i < totalPages) {
-                    pagesToShow.push(i);
-                }
+                if (i > 1 && i < totalPages) pagesToShow.push(i);
             }
-
-            // Add ellipsis if current page is far from end
-            if (currentPage < totalPages - (MAX_VISIBLE - 1)) {
-                pagesToShow.push('...');
-            }
-
-            // Always add last page
-            if (totalPages > 1) {
-                pagesToShow.push(totalPages);
-            }
-
+    
+            if (currentPage < totalPages - (MAX_VISIBLE - 1)) pagesToShow.push('...');
+            if (totalPages > 1) pagesToShow.push(totalPages);
+    
             const ul = document.createElement('ul');
             ul.className = 'pagination';
-
+    
             pagesToShow.forEach(page => {
                 if (page === '...') {
                     ul.innerHTML += `
@@ -724,7 +766,7 @@
                     `;
                 }
             });
-
+    
             ul.querySelectorAll('.page-link').forEach(link => {
                 if (link.dataset.page) {
                     link.addEventListener('click', (e) => {
@@ -734,47 +776,61 @@
                     });
                 }
             });
-
+    
             pagination.appendChild(ul);
         }
-
-        document.getElementById('searchInput').addEventListener('input', (e) => {
+    
+        function handleSearch(e) {
             searchTerm = e.target.value.toLowerCase();
             currentPage = 1;
             filterContent();
-        });
-
-        document.getElementById('searchButton').addEventListener('click', () => {
-            currentPage = 1;
-            filterContent();
-        });
-
-        document.getElementById('contactForm').addEventListener('submit', async (e) => {
+        }
+    
+        function handleProgressClick(e) {
+            const rect = e.target.getBoundingClientRect();
+            const pos = (e.clientX - rect.left) / rect.width;
+            audioElement.currentTime = pos * audioElement.duration;
+        }
+    
+        function handleClosePlayer() {
+            audioElement.pause();
+            isPlaying = false;
+            document.querySelector('.audio-player').style.display = 'none';
+            updatePlayButton();
+            document.querySelectorAll('.play-audio').forEach(btn => {
+                btn.innerHTML = '<i class="fas fa-play"></i> Play';
+                btn.classList.remove('playing');
+                btn.parentElement.querySelector('.audio-close').style.display = 'none';
+            });
+        }
+    
+        function handlePlayPause() {
+            isPlaying = !isPlaying;
+            if(isPlaying) audioElement.play();
+            else audioElement.pause();
+            updatePlayButton();
+        }
+    
+        async function handleFormSubmit(e) {
             e.preventDefault();
             const form = e.target;
             const submitButton = document.getElementById('submitButton');
             const spinner = submitButton.querySelector('.spinner-border');
-
+    
             submitButton.disabled = true;
             submitButton.classList.add('btn-loading');
             spinner.classList.remove('d-none');
-
+    
             try {
                 const formData = new FormData(form);
                 const response = await fetch(form.action, {
                     method: 'POST',
                     body: formData,
-                    headers: {
-                        'Accept': 'application/json'
-                    }
+                    headers: { 'Accept': 'application/json' }
                 });
-
+    
                 const result = await response.json();
-
-                submitButton.disabled = false;
-                submitButton.classList.remove('btn-loading');
-                spinner.classList.add('d-none');
-
+                
                 if (result.success) {
                     form.reset();
                     $('#contactModal').modal('hide');
@@ -783,106 +839,49 @@
                     alert('Failed to send message. Please try again.');
                 }
             } catch (error) {
+                alert('An error occurred. Please try again later.');
+                console.error('Form submission error:', error);
+            } finally {
                 submitButton.disabled = false;
                 submitButton.classList.remove('btn-loading');
                 spinner.classList.add('d-none');
-                alert('An error occurred. Please try again later.');
-                console.error('Form submission error:', error);
             }
+        }
+    
+        function handleScroll() {
+            const scrollButton = document.querySelector('.scroll-to-top');
+            window.pageYOffset > 100 
+                ? scrollButton.classList.add('show')
+                : scrollButton.classList.remove('show');
+        }
+    
+        function scrollToTop() {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    
+        // Audio time updates
+        audioElement.addEventListener('timeupdate', () => {
+            const progress = (audioElement.currentTime / audioElement.duration) * 100;
+            document.getElementById('progressBar').style.width = `${progress}%`;
+            const currentTime = formatTime(audioElement.currentTime);
+            const duration = formatTime(audioElement.duration);
+            document.getElementById('timeDisplay').textContent = `${currentTime} / ${duration}`;
         });
-
-        const scrollButton = document.querySelector('.scroll-to-top');
-        window.addEventListener('scroll', () => {
-            if (window.pageYOffset > 100) {
-                scrollButton.classList.add('show');
-            } else {
-                scrollButton.classList.remove('show');
-            }
-        });
-
-        scrollButton.addEventListener('click', () => {
-            window.scrollTo({
-                top: 0,
-                behavior: 'smooth'
-            });
-        });
-
+    
+        function formatTime(seconds) {
+            const minutes = Math.floor(seconds / 60);
+            seconds = Math.floor(seconds % 60);
+            return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        }
+    
+        // Preloader timeout
         window.addEventListener('load', function() {
             setTimeout(function() {
                 const preloader = document.getElementById('preloader');
                 preloader.classList.add('fade-out');
-                setTimeout(() => {
-                    preloader.style.display = 'none';
-                }, 500);
+                setTimeout(() => preloader.style.display = 'none', 500);
             }, 2000);
         });
-        function displayContent(items) {
-    const contentList = document.getElementById('contentList');
-    contentList.innerHTML = '';
-    
-    items.forEach(item => {
-        const col = document.createElement('div');
-        col.className = 'col-md-4 col-sm-6 mb-4';
-        
-        if(currentSection === 'ebooks') {
-            // Add ebook card HTML
-            col.innerHTML = `
-                <div class="card book-card shadow h-100">
-                    <div class="card-body">
-                        <h5 class="card-title">
-                            <i class="fas fa-book book-icon"></i> ${item.title}
-                        </h5>
-                        <div class="author-info">
-                            <i class="fas fa-user"></i> ${item.author}
-                        </div>
-                        <div class="mt-3">
-                            <a href="reader.html?file=${encodeURIComponent(item.file)}" 
-                               class="btn btn-primary btn-sm" 
-                               target="_blank">
-                                <i class="fas fa-book-open"></i> Read
-                            </a>
-                            <a href="${item.file}" 
-                               download 
-                               class="btn btn-secondary btn-sm">
-                                <i class="fas fa-download"></i> Download
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            `;
-        } else {
-            // Audio card HTML remains the same
-            col.innerHTML = `
-                <div class="card audio-card shadow h-100">
-                    <div class="card-body">
-                        <h5 class="card-title">
-                            <i class="fas fa-headphones book-icon"></i> ${item.title}
-                        </h5>
-                        <div class="author-info">
-                            <i class="fas fa-user"></i> ${item.speaker}
-                        </div>
-                        <div class="mt-3 btn-group">
-                            <button class="btn btn-primary btn-sm play-audio" data-file="${item.file}">
-                                <i class="fas fa-play"></i> Play
-                            </button>
-                            <a href="${item.file}" download class="btn btn-secondary btn-sm">
-                                <i class="fas fa-download"></i> Download
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-        contentList.appendChild(col);
-    });
-
-    // Add audio event listeners
-    if(currentSection === 'audio') {
-        document.querySelectorAll('.play-audio').forEach(btn => {
-            btn.addEventListener('click', () => handleAudioPlay(btn.dataset.file));
-        });
-    }
-}
     </script>
 </body>
 </html>
