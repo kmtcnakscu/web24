@@ -271,11 +271,11 @@
         color: #007bff;
     }
 
-    .category-icon {
+    /* .category-icon {
         font-size: 1.2rem;
         margin-right: 10px;
         color: #2c3e50;
-    }
+    } */
     .list-group-item.active .category-icon {
         color: white;
     }
@@ -283,7 +283,34 @@
     .list-group-item:hover .category-icon {
         color: white;
     }
-    
+      .book-card {
+        position: relative;
+        overflow: hidden;
+        border-left: 4px solid #007bff; /* Blue accent line */
+        transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    }
+
+    .book-card::before {
+        content: '';
+        position: absolute;
+        left: -100%;
+        top: 0;
+        width: 50%;
+        height: 100%;
+        background: rgba(0, 123, 255, 0.1);
+        transform: skewX(-15deg);
+        transition: left 0.3s ease;
+    }
+
+    .book-card:hover::before {
+        left: 150%;
+    }
+
+    .category-icon {
+        font-size: 1.1rem;
+        margin-right: 10px;
+        transition: color 0.3s ease;
+    }
     </style>
 </head>
 <body>
@@ -417,228 +444,255 @@
     <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.3/dist/umd/popper.min.js"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
-    <script>
-        let books = [];
-        let selectedCategory = 'all';
-        let searchTerm = '';
-        let currentPage = 1;
-        const itemsPerPage = 9;
+<script>
+    // Configuration
+    let books = [];
+    let selectedCategory = 'all';
+    let searchTerm = '';
+    let currentPage = 1;
+    const itemsPerPage = 9;
+    
+    // Category icons mapping
+    const categoryIcons = {
+        'Spiritual Growth': 'fas fa-dove',
+        'Theology': 'fas fa-church',
+        'Devotionals': 'fas fa-praying-hands',
+        'Leadership': 'fas fa-users-cog',
+        'Apologetics': 'fas fa-cross',
+        'Biography': 'fas fa-user-check',
+        'Bible Study': 'fas fa-bible',
+        'All': 'fas fa-book'
+    };
 
-        fetch('books.json').then(r => r.json()).then(bookData => {
-            books = bookData;
-            updateCategories();
-            filterContent();
-        });
+    // Initial setup
+    document.addEventListener('DOMContentLoaded', () => {
+        fetch('books.json')
+            .then(response => response.json())
+            .then(bookData => {
+                books = bookData;
+                updateCategories();
+                filterContent();
+            })
+            .catch(error => console.error('Error loading books:', error));
 
-        function updateCategories() {
-            const categories = [...new Set(books.map(item => item.category))];
-            const categoryList = document.getElementById('categoryList');
-            categoryList.innerHTML = `
-                <a href="#" class="list-group-item list-group-item-action ${selectedCategory === 'all' ? 'active' : ''}" data-category="all">All</a>
-                ${categories.map(cat => `
-                    <a href="#" class="list-group-item list-group-item-action ${selectedCategory === cat ? 'active' : ''}" data-category="${cat}">${cat}</a>
-                `).join('')}
-            `;
-            categoryList.querySelectorAll('a').forEach(a => {
-                a.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    selectedCategory = a.dataset.category;
-                    categoryList.querySelector('.active').classList.remove('active');
-                    a.classList.add('active');
-                    currentPage = 1;
-                    filterContent();
-                });
+        // Event listeners
+        document.getElementById('searchInput').addEventListener('input', handleSearch);
+        document.getElementById('searchButton').addEventListener('click', handleSearch);
+        document.getElementById('contactForm').addEventListener('submit', handleFormSubmit);
+    });
+
+    // Category handling
+    function updateCategories() {
+        const categories = [...new Set(books.map(item => item.category))];
+        const categoryList = document.getElementById('categoryList');
+        
+        categoryList.innerHTML = `
+            <a href="#" class="list-group-item list-group-item-action ${selectedCategory === 'all' ? 'active' : ''}" data-category="all">
+                <i class="${categoryIcons['All']} category-icon"></i>All
+            </a>
+            ${categories.map(cat => `
+                <a href="#" class="list-group-item list-group-item-action ${selectedCategory === cat ? 'active' : ''}" data-category="${cat}">
+                    <i class="${categoryIcons[cat] || 'fas fa-book'} category-icon"></i>${cat}
+                </a>
+            `).join('')}
+        `;
+
+        categoryList.querySelectorAll('a').forEach(a => {
+            a.addEventListener('click', (e) => {
+                e.preventDefault();
+                selectedCategory = a.dataset.category;
+                document.querySelectorAll('#categoryList .active').forEach(el => el.classList.remove('active'));
+                a.classList.add('active');
+                currentPage = 1;
+                filterContent();
             });
-        }
+        });
+    }
 
-        function filterContent() {
-            const filtered = books.filter(item =>
-                (selectedCategory === 'all' || item.category === selectedCategory) &&
-                item.title.toLowerCase().includes(searchTerm.toLowerCase())
-            );
-            const totalPages = Math.ceil(filtered.length / itemsPerPage);
-            const paginated = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-            displayContent(paginated);
-            renderPagination(totalPages);
-        }
+    // Content filtering and display
+    function filterContent() {
+        const filtered = books.filter(item =>
+            (selectedCategory === 'all' || item.category === selectedCategory) &&
+            item.title.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+        
+        const totalPages = Math.ceil(filtered.length / itemsPerPage);
+        const paginated = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+        
+        displayContent(paginated);
+        renderPagination(totalPages);
+    }
 
-        function displayContent(items) {
-            const contentList = document.getElementById('contentList');
-            contentList.innerHTML = '';
-            items.forEach(item => {
-                const col = document.createElement('div');
-                col.className = 'col-md-4 col-sm-6 mb-4';
-                col.innerHTML = `
-                    <div class="card book-card shadow h-100">
-                        <div class="card-body">
-                            <h5 class="card-title">
-                                <i class="fas fa-book book-icon"></i> ${item.title}
-                            </h5>
-                            <div class="author-info">
-                                <i class="fas fa-user"></i> ${item.author}
-                            </div>
-                            <div class="mt-3">
-                                <a href="reader.html?file=${encodeURIComponent(item.file)}" class="btn btn-primary btn-sm" target="_blank">
-                                    <i class="fas fa-book-open"></i> Read
-                                </a>
-                                <a href="${item.file}" download class="btn btn-secondary btn-sm">
-                                    <i class="fas fa-download"></i> Download
-                                </a>
-                            </div>
+    function displayContent(items) {
+        const contentList = document.getElementById('contentList');
+        contentList.innerHTML = '';
+        
+        items.forEach(item => {
+            const col = document.createElement('div');
+            col.className = 'col-md-4 col-sm-6 mb-4';
+            col.innerHTML = `
+                <div class="card book-card shadow h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <i class="fas fa-book book-icon"></i> ${item.title}
+                        </h5>
+                        <div class="author-info">
+                            <i class="fas fa-user"></i> ${item.author}
+                        </div>
+                        <div class="category-badge mt-2">
+                            <span class="badge badge-primary">
+                                <i class="${categoryIcons[item.category] || 'fas fa-book'}"></i>
+                                ${item.category}
+                            </span>
+                        </div>
+                        <div class="mt-3">
+                            <a href="reader.html?file=${encodeURIComponent(item.file)}" 
+                               class="btn btn-primary btn-sm" target="_blank">
+                                <i class="fas fa-book-open"></i> Read
+                            </a>
+                            <a href="${item.file}" download class="btn btn-secondary btn-sm">
+                                <i class="fas fa-download"></i> Download
+                            </a>
                         </div>
                     </div>
-                `;
-                contentList.appendChild(col);
-            });
-        }
-
-        function renderPagination(totalPages) {
-            const pagination = document.getElementById('pagination');
-            pagination.innerHTML = '';
-            if (totalPages <= 1) return;
-
-            const pagesToShow = [];
-            const MAX_VISIBLE = 3; // Current page + prev/next
-
-            // Always add first page
-            pagesToShow.push(1);
-
-            // Add ellipsis if current page is far from start
-            if (currentPage > MAX_VISIBLE) {
-                pagesToShow.push('...');
-            }
-
-            // Determine range of pages around current page
-            let start = Math.max(2, currentPage - 1);
-            let end = Math.min(totalPages - 1, currentPage + 1);
-
-            // Add page numbers around current page
-            for (let i = start; i <= end; i++) {
-                if (i > 1 && i < totalPages) {
-                    pagesToShow.push(i);
-                }
-            }
-
-            // Add ellipsis if current page is far from end
-            if (currentPage < totalPages - (MAX_VISIBLE - 1)) {
-                pagesToShow.push('...');
-            }
-
-            // Always add last page
-            if (totalPages > 1) {
-                pagesToShow.push(totalPages);
-            }
-
-            const ul = document.createElement('ul');
-            ul.className = 'pagination';
-
-            pagesToShow.forEach(page => {
-                if (page === '...') {
-                    ul.innerHTML += `
-                        <li class="page-item disabled">
-                            <span class="page-link">...</span>
-                        </li>
-                    `;
-                } else {
-                    ul.innerHTML += `
-                        <li class="page-item ${page === currentPage ? 'active' : ''}">
-                            <a class="page-link" href="#" data-page="${page}">${page}</a>
-                        </li>
-                    `;
-                }
-            });
-
-            ul.querySelectorAll('.page-link').forEach(link => {
-                if (link.dataset.page) {
-                    link.addEventListener('click', (e) => {
-                        e.preventDefault();
-                        currentPage = parseInt(link.dataset.page);
-                        filterContent();
-                    });
-                }
-            });
-
-            pagination.appendChild(ul);
-        }
-
-        document.getElementById('searchInput').addEventListener('input', (e) => {
-            searchTerm = e.target.value.toLowerCase();
-            currentPage = 1;
-            filterContent();
+                </div>
+            `;
+            contentList.appendChild(col);
         });
+    }
 
-        document.getElementById('searchButton').addEventListener('click', () => {
-            currentPage = 1;
-            filterContent();
-        });
+    // Pagination
+  function renderPagination(totalPages) {
+    const pagination = document.getElementById('pagination');
+    pagination.innerHTML = '';
+    
+    if (totalPages <= 1) return;
 
-        document.getElementById('contactForm').addEventListener('submit', async (e) => {
+    const ul = document.createElement('ul');
+    ul.className = 'pagination';
+    
+    // Previous button
+    ul.innerHTML += `
+        <li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+            <a class="page-link" href="#" data-page="${currentPage - 1}">&laquo;</a>
+        </li>
+    `;
+
+    // Generate dynamic page numbers with ellipsis
+    const pages = [];
+    pages.push(1);
+
+    let startWindow = Math.max(2, currentPage - 1);
+    let endWindow = Math.min(totalPages - 1, currentPage + 1);
+
+    // Add left ellipsis if needed
+    if (startWindow > 2) pages.push('...');
+
+    // Add window pages
+    for (let i = startWindow; i <= endWindow; i++) pages.push(i);
+
+    // Add right ellipsis if needed
+    if (endWindow < totalPages - 1) pages.push('...');
+
+    // Add last page if not already included
+    if (totalPages > 1) pages.push(totalPages);
+
+    // Create page items
+    pages.forEach(page => {
+        if (page === '...') {
+            ul.innerHTML += `<li class="page-item disabled"><span class="page-link">…</span></li>`;
+        } else {
+            const active = page === currentPage ? 'active' : '';
+            ul.innerHTML += `
+                <li class="page-item ${active}">
+                    <a class="page-link" href="#" data-page="${page}">${page}</a>
+                </li>
+            `;
+        }
+    });
+
+    // Next button
+    ul.innerHTML += `
+        <li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+            <a class="page-link" href="#" data-page="${currentPage + 1}">&raquo;</a>
+        </li>
+    `;
+
+    ul.querySelectorAll('.page-link').forEach(link => {
+        link.addEventListener('click', (e) => {
             e.preventDefault();
-            const form = e.target;
-            const submitButton = document.getElementById('submitButton');
-            const spinner = submitButton.querySelector('.spinner-border');
-
-            submitButton.disabled = true;
-            submitButton.classList.add('btn-loading');
-            spinner.classList.remove('d-none');
-
-            try {
-                const formData = new FormData(form);
-                const response = await fetch(form.action, {
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'Accept': 'application/json'
-                    }
-                });
-
-                const result = await response.json();
-
-                submitButton.disabled = false;
-                submitButton.classList.remove('btn-loading');
-                spinner.classList.add('d-none');
-
-                if (result.success) {
-                    form.reset();
-                    $('#contactModal').modal('hide');
-                    $('#successModal').modal('show');
-                } else {
-                    alert('Failed to send message. Please try again.');
-                }
-            } catch (error) {
-                submitButton.disabled = false;
-                submitButton.classList.remove('btn-loading');
-                spinner.classList.add('d-none');
-                alert('An error occurred. Please try again later.');
-                console.error('Form submission error:', error);
+            const page = link.dataset.page;
+            if (page) {
+                currentPage = parseInt(page);
+                filterContent();
             }
         });
+    });
 
-        const scrollButton = document.querySelector('.scroll-to-top');
-        window.addEventListener('scroll', () => {
-            if (window.pageYOffset > 100) {
-                scrollButton.classList.add('show');
-            } else {
-                scrollButton.classList.remove('show');
-            }
-        });
+    pagination.appendChild(ul);
+}
 
-        scrollButton.addEventListener('click', () => {
-            window.scrollTo({
-                top: 0,
-                behavior: 'smooth'
+    // Search handling
+    function handleSearch(e) {
+        searchTerm = e.target.value.toLowerCase();
+        currentPage = 1;
+        filterContent();
+    }
+
+    // Contact form handling
+    async function handleFormSubmit(e) {
+        e.preventDefault();
+        const form = e.target;
+        const submitButton = form.querySelector('button[type="submit"]');
+        const spinner = submitButton.querySelector('.spinner-border');
+
+        submitButton.disabled = true;
+        spinner.classList.remove('d-none');
+
+        try {
+            const formData = new FormData(form);
+            const response = await fetch(form.action, {
+                method: 'POST',
+                body: formData,
+                headers: { 'Accept': 'application/json' }
             });
-        });
 
-        window.addEventListener('load', function() {
-            setTimeout(function() {
-                const preloader = document.getElementById('preloader');
-                preloader.classList.add('fade-out');
-                setTimeout(() => {
-                    preloader.style.display = 'none';
-                }, 500);
-            }, 2000);
-        });
-    </script>
+            const result = await response.json();
+            
+            if (result.success) {
+                form.reset();
+                $('#contactModal').modal('hide');
+                $('#successModal').modal('show');
+            } else {
+                alert('Failed to send message. Please try again.');
+            }
+        } catch (error) {
+            alert('An error occurred. Please try again later.');
+            console.error('Form submission error:', error);
+        } finally {
+            submitButton.disabled = false;
+            spinner.classList.add('d-none');
+        }
+    }
+
+    // Scroll to top functionality
+    window.addEventListener('scroll', () => {
+        const scrollButton = document.querySelector('.scroll-to-top');
+        scrollButton.classList.toggle('show', window.pageYOffset > 100);
+    });
+
+    document.querySelector('.scroll-to-top').addEventListener('click', () => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+
+    // Preloader
+    window.addEventListener('load', () => {
+        setTimeout(() => {
+            const preloader = document.getElementById('preloader');
+            preloader.classList.add('fade-out');
+            setTimeout(() => preloader.style.display = 'none', 500);
+        }, 2000);
+    });
+</script>
 </body>
 </html>   
